@@ -1,0 +1,3 @@
+[submodule "app/Taqam"]
+	path = app/Taqam
+	url = https://github.com/MhmdMhros/Taqam.git
