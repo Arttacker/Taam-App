@@ -91,7 +91,9 @@ def check_quality(image: schemas.Image):
 
     # Assessing the quality of the image
     quality = quality_assessment.asses_image_quality(image_storing_path)
-    return {"quality": quality}
+    if not quality:
+        # If image quality is not valid, return QualityNotValidResponse
+        return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @app.post("/color", status_code=status.HTTP_200_OK, response_model=schemas.ColorResponse,
