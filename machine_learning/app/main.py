@@ -1,9 +1,10 @@
 from fastapi import FastAPI, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import schemas, utils, database
-from ..models import color_detection, quality_assessment
-from ..models.image_search import image_search
+from machine_learning.app import schemas, utils, database
+from machine_learning.models import color_detection, quality_assessment
+from machine_learning.models.image_search import image_search
+from machine_learning.models.key_points.pickels.model_loader import *
 
 app = FastAPI()
 
@@ -78,7 +79,7 @@ def check_quality(image: schemas.Image):
     # Extract the filename from the URL
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
-    image_storing_path = 'machine_learning/images/' + filename
+    image_storing_path = 'D:/GitProjects/Taam-App/machine_learning/images/' + filename
 
     # Assessing the quality of the image
     quality = quality_assessment.asses_image_quality(image_storing_path)
@@ -97,7 +98,7 @@ def detect_color(image: schemas.Image):
     # Extract the filename from the URL
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
-    image_storing_path = 'machine_learning/images/' + filename
+    image_storing_path = 'D:/GitProjects/Taam-App/machine_learning/images/' + filename
 
     ###################################################
     # [MISSING]: segment the image from the background
@@ -105,7 +106,7 @@ def detect_color(image: schemas.Image):
 
     # Extracting the color from the image
     colors = color_detection.extract_dominant_colors(image_storing_path, 3)
-    hex_color = colors[0]
+    hex_color = colors[1]
     color = color_detection.color_name_from_hex(hex_color)
     color = {"name": color, "hex": hex_color}
 
@@ -128,8 +129,8 @@ def calc_size(image: schemas.Image):
     # Extract the filename from the URL
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
-    image_storing_path = 'machine_learning/images/' + filename
-
+    image_storing_path = 'D:/GitProjects/Taam-App/machine_learning/images/' + filename
+    calculate_size(image_storing_path)
     return {"Hello": "World"}
 
 
@@ -143,7 +144,7 @@ def search(image: schemas.Image):
     # Extract the filename from the URL
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
-    image_storing_path = 'machine_learning/images/' + filename
+    image_storing_path = 'D:/GitProjects/Taam-App/machine_learning/images/' + filename
 
     ###################################################
     # [MISSING]: classify the category of the cloth in the image
@@ -164,5 +165,8 @@ def search(image: schemas.Image):
     ]}
 
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
