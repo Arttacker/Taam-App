@@ -43,15 +43,6 @@ def process_image(image: schemas.Image):
     # Preparing the destination for string the image
     image_storing_path = 'machine_learning/images/' + filename
 
-    response_model = None  # Initialize response model
-
-    # Assessing the quality of the image
-    quality = quality_assessment.asses_image_quality(image_storing_path)
-
-    if not quality:
-        # If image quality is not valid
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="image quality is poor")
-
     #  Continue processing to send the complete data
     ###################################################
     # [MISSING]: segment the image from the background
@@ -91,9 +82,6 @@ def check_quality(image: schemas.Image):
 
     # Assessing the quality of the image
     quality = quality_assessment.asses_image_quality(image_storing_path)
-    if not quality:
-        # If image quality is not valid
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="image quality is poor")
 
     return {"quality": quality}
 
@@ -156,13 +144,6 @@ def search(image: schemas.Image):
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
     image_storing_path = 'machine_learning/images/' + filename
-
-    # Assessing the quality of the image
-    quality = quality_assessment.asses_image_quality(image_storing_path)
-
-    if not quality:
-        # If image quality is not valid
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="image quality is poor")
 
     ###################################################
     # [MISSING]: classify the category of the cloth in the image
