@@ -58,15 +58,17 @@ def fill_database(model):
 
 
 # ######################################################################################################################
-# from ..models.key_points.pickels.model_loader import get_learner, predict
+from ..models.key_points.pickels.model_loader import get_learner, predict
 
-# def calculate_size(image) -> tuple:
-#     # Extracting the card from the image and Getting measurement of it
-#     # card_measurement = card_detection.get_pixel_measure(image)
-#     model = get_learner()
-#     predict(image, model)
-#     width = 0
-#     height = 0
-#     size = ''
-#     return width, height, size
+
+def calculate_size(image) -> tuple:
+    # Extracting the card from the image and Getting measurement of it
+    # card_measurement = card_detection.get_pixel_measure(image)
+
+    # model = get_learner()
+    # predict(image, model)
+    width = 0
+    height = 0
+    size = ''
+    return width, height, size
 
