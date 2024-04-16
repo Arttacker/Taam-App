@@ -6,8 +6,7 @@ class Image(BaseModel):
 
 
 class GeneralImageResponse(BaseModel):
-    quality: bool
-    color: str
+    color: dict
     width: float
     height: float
     size: str
@@ -25,7 +24,7 @@ class CategoryResponse(BaseModel):
 
 
 class ColorResponse(BaseModel):
-    color: str
+    color: dict
 
 
 class SizeResponse(BaseModel):
@@ -35,6 +34,5 @@ class SizeResponse(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    search_result: str  # the path for the similar image
-
+    nearest_images: list
 

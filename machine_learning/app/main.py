@@ -1,68 +1,85 @@
-from fastapi import FastAPI, status, HTTPException
+from fastapi import FastAPI, status, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 
-from . import schemas
-from . import utils
-from ..models import color_detection, quality_assessment, card_detection
+from . import schemas, utils, database
+from ..models import color_detection, quality_assessment
+from ..models.image_search import image_search
 
 app = FastAPI()
 
-# setting up the CORS Policy
-origins = [
-    "http://localhost:8080",  # insert only the domain the mobile app is running on
-]
+# region Setting-up CORS Policy
+origins = ["*"]
 
-app.add_middleware(
-    CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
-)
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"],
+    allow_headers=["*"])
+# endregion
+
+
+# region Filling database
+# Calling the function to fill the database
+# model = utils.load_image_search_model()
+# utils.fill_database(model)
+# endregion
 
 
 MALE_CATEGORIES = {}
 FEMALE_CATEGORIES = {}
 
+
 SUMMER_SEASON = {}
 WINTER_SEASON = {}
 
 
-@app.post("/process-image", status_code=status.HTTP_200_OK, response_model=schemas.GeneralImageResponse)
-def read_root(image: schemas.Image):
+@app.post("/process-image", status_code=status.HTTP_200_OK, response_model=schemas.GeneralImageResponse,
+          tags=['General Image Processing'])
+def process_image(image: schemas.Image):
     # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
 
     # Extract the filename from the URL
     filename = image.url.split('%')[1].split('?')[0][2:]
+
     # Preparing the destination for string the image
     image_storing_path = 'machine_learning/images/' + filename
+
+    response_model = None  # Initialize response model
 
     # Assessing the quality of the image
     quality = quality_assessment.asses_image_quality(image_storing_path)
 
+    if not quality:
+        # If image quality is not valid, return QualityNotValidResponse
+        return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    #  Continue processing to send the complete data
     ###################################################
     # [MISSING]: segment the image from the background
-    ###################################################
+    ##################################################
 
     # Extracting the color from the image
-    colors = color_detection.extract_dominant_colors(image_storing_path, 1)
+    colors = color_detection.extract_dominant_colors(image_storing_path, 3)
+    hex_color = colors[0]
+    color = color_detection.color_name_from_hex(hex_color)
+    hex_color = colors[0]
+    color = {"name": color, "hex": hex_color}
+    # Calculate the size of the cloth in the image
+    width, height, size = utils.calculate_size(image_storing_path)
 
-    # Extracting the card from the image and Getting measurement of it
-    card_measurement = card_detection.get_pixel_measure(image_storing_path)
-    print(card_measurement)
-
-    return {"quality": quality,
-            "color": colors[0],
-            "width": 1.0,
-            "height": 1.0,
-            "size": 'L',
-            "category": 'T-shirt',
-            "gender": 'M',
-            "season": 'summer'
-            }
+    return {
+        "color": color,
+        "width": width,
+        "height": height,
+        "size": size,
+        "category": 'T-shirt',
+        "gender": 'M',
+        "season": 'summer'
+    }
 
 
-@app.post("/quality", status_code=status.HTTP_200_OK, response_model=schemas.QualityResponse)
-def read_root(image: schemas.Image):
+@app.post("/quality", status_code=status.HTTP_200_OK, response_model=schemas.QualityResponse,
+          tags=['Quality Validation'])
+def check_quality(image: schemas.Image):
     # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
@@ -77,8 +94,9 @@ def read_root(image: schemas.Image):
     return {"quality": quality}
 
 
-@app.post("/color", status_code=status.HTTP_200_OK, response_model=schemas.ColorResponse)
-def read_root(image: schemas.Image):
+@app.post("/color", status_code=status.HTTP_200_OK, response_model=schemas.ColorResponse,
+          tags=['Color Retrieval'])
+def detect_color(image: schemas.Image):
     # Downloading the image
 
     if not utils.download_image(image_url=image.url):
@@ -94,24 +112,72 @@ def read_root(image: schemas.Image):
     ###################################################
 
     # Extracting the color from the image
-    colors = color_detection.extract_dominant_colors(image_storing_path, 1)
-    return {"color": colors[0]}
+    colors = color_detection.extract_dominant_colors(image_storing_path, 3)
+    hex_color = colors[0]
+    color = color_detection.color_name_from_hex(hex_color)
+    color = {"name": color, "hex": hex_color}
+
+    return {"color": color}
 
 
-@app.post("/category", status_code=status.HTTP_200_OK, response_model=schemas.CategoryResponse)
-def read_root(image: schemas.Image):
+@app.post("/category", status_code=status.HTTP_200_OK, response_model=schemas.CategoryResponse,
+          tags=['Category Retrieval'])
+def classify_category(image: schemas.Image):
     return {"Hello": "World"}
 
 
-@app.post("/size", status_code=status.HTTP_200_OK, response_model=schemas.SizeResponse)
-def read_root(image: schemas.Image):
+@app.post("/size", status_code=status.HTTP_200_OK, response_model=schemas.SizeResponse,
+          tags=['Size Retrieval'])
+def calc_size(image: schemas.Image):
+    # Downloading the image
+    if not utils.download_image(image_url=image.url):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
+
+    # Extract the filename from the URL
+    filename = image.url.split('%')[1].split('?')[0][2:]
+    # Preparing the destination for string the image
+    image_storing_path = 'machine_learning/images/' + filename
+
     return {"Hello": "World"}
 
 
-@app.post("/search", status_code=status.HTTP_200_OK, response_model=schemas.SearchResponse)
-def read_root(image: schemas.Image):
-    return {"Hello": "World"}
+@app.post("/search", status_code=status.HTTP_200_OK, response_model=schemas.SearchResponse,
+          tags=['Search Nearest Images'])
+def search(image: schemas.Image):
+    # Downloading the image
+    if not utils.download_image(image_url=image.url):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
+
+    # Extract the filename from the URL
+    filename = image.url.split('%')[1].split('?')[0][2:]
+    # Preparing the destination for string the image
+    image_storing_path = 'machine_learning/images/' + filename
+
+    # Assessing the quality of the image
+    quality = quality_assessment.asses_image_quality(image_storing_path)
+
+    if not quality:
+        # If image quality is not valid, return QualityNotValidResponse
+        return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    ###################################################
+    # [MISSING]: classify the category of the cloth in the image
+    category = None
+    ###################################################
+    # Initialize database connection
+    conn, cursor = database.connect_to_database()
+    # Loading the image searching model
+    model = utils.load_image_search_model()
+    # Converting the downloaded image to a vector
+    image_vector = image_search.extract_features(image_storing_path, model)
+
+    # Compare this vector against all the stored images vectors in the database
+    nearest_images = database.retrieve_nearest_k_images(cursor, image_vector, category, k=5)
+
+    return {"nearest_images": [
+        {"name": image[0], "rank": image[1]} for image in nearest_images
+    ]}
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
