@@ -49,8 +49,8 @@ def process_image(image: schemas.Image):
     quality = quality_assessment.asses_image_quality(image_storing_path)
 
     if not quality:
-        # If image quality is not valid, return QualityNotValidResponse
-        return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        # If image quality is not valid
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="image quality is poor")
 
     #  Continue processing to send the complete data
     ###################################################
@@ -92,8 +92,10 @@ def check_quality(image: schemas.Image):
     # Assessing the quality of the image
     quality = quality_assessment.asses_image_quality(image_storing_path)
     if not quality:
-        # If image quality is not valid, return QualityNotValidResponse
-        return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        # If image quality is not valid
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="image quality is poor")
+
+    return {"quality": quality}
 
 
 @app.post("/color", status_code=status.HTTP_200_OK, response_model=schemas.ColorResponse,
@@ -159,8 +161,8 @@ def search(image: schemas.Image):
     quality = quality_assessment.asses_image_quality(image_storing_path)
 
     if not quality:
-        # If image quality is not valid, return QualityNotValidResponse
-        return Response(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        # If image quality is not valid
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="image quality is poor")
 
     ###################################################
     # [MISSING]: classify the category of the cloth in the image
