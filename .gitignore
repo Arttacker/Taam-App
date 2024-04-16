@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # Local database
-machine_learning/app/images_database.db
+machine_learning/app/database/
 
 # Stored Images
 machine_learning/images/
