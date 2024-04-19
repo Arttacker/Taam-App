@@ -19,6 +19,14 @@ class QualityResponse(BaseModel):
     quality: bool
 
 
+class SeasonResponse(BaseModel):
+    season: str
+
+
+class GenderResponse(BaseModel):
+    gender: str
+
+
 class CategoryResponse(BaseModel):
     category: str
 

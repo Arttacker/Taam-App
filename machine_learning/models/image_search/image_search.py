@@ -4,6 +4,7 @@ from keras.models import model_from_json
 from keras.preprocessing import image
 
 
+
 def load_model(model_architecture_path, model_weights_path):
     """
     Load the model architecture and weights.

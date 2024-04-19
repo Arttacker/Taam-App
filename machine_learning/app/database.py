@@ -1,9 +1,10 @@
 import sqlite3
+from machine_learning.global_paths import IMAGES_DATABASE
 
 import numpy as np
 
 
-def connect_to_database(database_name='machine_learning/app/database/images_database.db'):
+def connect_database(database_name=IMAGES_DATABASE):
     """
     Connect to the SQLite database.
 
@@ -30,30 +31,56 @@ def create_images_table(cursor):
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         filename TEXT NOT NULL UNIQUE,
                         vector TEXT NOT NULL,
-                        category TEXT NOT NULL 
+                        category TEXT NOT NULL, 
+                        url  TEXT NOT NULL
                     )''')
 
 
-def insert_image(conn, cursor, image_path, vector, category='UNKNOWN') -> bool:
+def insert_image(conn, cursor, image_path, vector, url='UNDEFINED', category='UNKNOWN') -> bool:
     """
     Insert an image (filename and vector) into the database.
 
     Parameters:
         conn (Connection): SQLite database connection object.
         cursor (Cursor): SQLite database cursor object.
-        image_path (str): The filename of the image.
+        image_path (str): The path of the image.
         vector (ndarray): The vector representation of the image.
         category (str): The category of the cloth in the image.
+        url (str): the url for the image to reference it on the firebase
+    Returns:
+        bool: True if insertion was successful, False otherwise.
     """
     filename = image_path.split('/')[-1].split('\\')[-1]
     vector_str = ','.join(map(str, vector))  # Convert vector to string
     try:
-        cursor.execute("INSERT INTO images (filename, vector, category) VALUES (?, ?, ?)",
-                       (filename, vector_str, category))
+        cursor.execute("INSERT INTO images (filename, vector, category, url) VALUES (?, ?, ?, ?)",
+                       (filename, vector_str, category, url))
         conn.commit()
         return True
     except sqlite3.IntegrityError as e:
         print("Error inserting image:", e)
+        return False
+
+
+def delete_image(conn, cursor, filename) -> bool:
+    """
+    Insert an image (filename and vector) into the database.
+
+    Parameters:
+        conn (Connection): SQLite database connection object.
+        cursor (Cursor): SQLite database cursor object.
+        filename (str): The filename of the image.
+    Returns:
+        bool: True if deletion was successful, False otherwise.
+    """
+    try:
+        cursor.execute("DELETE FROM images WHERE filename = ?",
+                       (filename,))
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        print("Error deleting image:", e)
+        conn.rollback()
         return False
 
 
@@ -65,10 +92,10 @@ def retrieve_vectors(cursor, category=None) -> list:
         cursor (Cursor): SQLite database cursor object.
         category (str): The needed category of cloths.
     Returns:
-        list: A list of tuples containing filenames and vectors.
+        list: A list of tuples containing urls and vectors.
     """
     if category:
-        cursor.execute("SELECT filename, vector FROM images WHERE category = ?", (category,))
+        cursor.execute("SELECT url, vector FROM images WHERE category = ?", (category,))
         rows = cursor.fetchall()
         vectors = []
         for row in rows:
@@ -76,7 +103,7 @@ def retrieve_vectors(cursor, category=None) -> list:
             vector = np.array(list(map(float, vector_str.split(','))))  # Parse string to numpy array
             vectors.append((filename, vector))
     else:
-        cursor.execute("SELECT filename, vector FROM images")
+        cursor.execute("SELECT url, vector FROM images")
         rows = cursor.fetchall()
         vectors = []
         for row in rows:
@@ -116,7 +143,7 @@ def retrieve_nearest_k_images(cursor, given_vector, category=None, k=5) -> list:
         k (int): The number of nearest images to retrieve. Default is 5.
 
     Returns:
-        list: A list of tuples containing filenames and cosine similarity scores.
+        list: A list of tuples containing urls for the nearest images and their similarity scores.
     """
     vectors = retrieve_vectors(cursor, category)
     cosine_similarities = compute_cosine_similarity(given_vector, np.array([vector for _, vector in vectors]))
