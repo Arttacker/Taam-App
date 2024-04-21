@@ -6,7 +6,9 @@ from machine_learning.app import schemas, utils, database
 from machine_learning.models import color_detection, quality_assessment, card_detection
 from machine_learning.models.image_search import image_search
 from machine_learning.models.key_points.key_points_model import *
-from machine_learning.global_paths import IMAGES
+from machine_learning.models.agrigorev.garments_classifier import *
+from machine_learning.global_paths import *
+from time import sleep
 
 app = FastAPI()
 
@@ -14,13 +16,25 @@ app = FastAPI()
 origins = ["*"]
 
 app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True, allow_methods=["*"],
-    allow_headers=["*"])
+                   allow_headers=["*"])
 # endregion
+
+# Initialize the global variables
+CATEGORY_MODEL = None
+IMAGE_SEARCH_MODEL = None
+
+
+@app.get("/")
+def test():
+    return {"Hello": "World"}
 
 
 @app.post("/process-image", status_code=status.HTTP_200_OK, response_model=schemas.GeneralImageResponse,
           tags=['General Image Processing'])
 def process_image(image: schemas.Image):
+    # Reference the global variable within the local scope
+    global CATEGORY_MODEL
+
     # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
@@ -31,37 +45,33 @@ def process_image(image: schemas.Image):
     # Preparing the destination for string the image
     image_storing_path = path.join(IMAGES, filename)
 
-    #  Continue processing to send the complete data
-    ###################################################
-    # [MISSING]: segment the image from the background
-    ##################################################
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
 
-    # Extracting the color from the image
-    colors = color_detection.extract_dominant_colors(image_storing_path, 3)
-    hex_color = colors[0]
-    color = color_detection.color_name_from_hex(hex_color)
-    hex_color = colors[0]
-    color = {"name": color, "hex": hex_color}
-    ###################################################
-    # [MISSING]: classify the category of the cloth in the image
-    category = ''
-    ###################################################
+    # Category Classification
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+
     # Season classification
     season = utils.classify_season(category)
+
     # Gender classification
     gender = utils.classify_gender(category)
-    # Calculate the size of the cloth in the image
-    width, height, size = utils.calculate_size(image_storing_path, category)
 
-    return {
-        "color": color,
-        "width": width,
-        "height": height,
-        "size": size,
-        "category": category,
-        "gender": gender,
-        "season": season
-    }
+    key_points_model = utils.get_suitable_key_points_model(category)
+    if key_points_model is None:
+        return {"color": None, "category": category, "gender": gender, "season": season}
+
+    key_points = predict(image_storing_path, key_points_model)
+
+    # Extracting the color from the image
+    segmented_image = utils.crop_image_for_color_detection(image_storing_path, key_points)
+
+    # Extracting the color from the image
+    colors = color_detection.extract_dominant_colors_from_image(segmented_image, 3)
+    data = {"color": colors[0], "category": category, "gender": gender, "season": season}
+    # print(data)
+    return data
 
 
 @app.post("/quality", status_code=status.HTTP_200_OK, response_model=schemas.QualityResponse,
@@ -77,16 +87,19 @@ def check_quality(image: schemas.Image):
     image_storing_path = path.join(IMAGES, filename)
 
     # Assessing the quality of the image
-    quality = quality_assessment.asses_image_quality(image_storing_path)
+    quality = quality_assessment.asses_image_quality(image_storing_path, thresh=50)
 
-    return {"quality": quality}
+    data = {"quality": quality}
+    # print(data)
+    return data
 
 
-@app.post("/color", status_code=status.HTTP_200_OK, response_model=schemas.ColorResponse,
-          tags=['Color Retrieval'])
+@app.post("/color", status_code=status.HTTP_200_OK, response_model=schemas.ColorResponse, tags=['Color Retrieval'])
 def detect_color(image: schemas.Image):
-    # Downloading the image
+    # Reference the global variable within the local scope
+    global CATEGORY_MODEL
 
+    # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
 
@@ -95,24 +108,34 @@ def detect_color(image: schemas.Image):
     # Preparing the destination for string the image
     image_storing_path = image_storing_path = path.join(IMAGES, filename)
 
-    ###################################################
-    # [MISSING]: segment the image from the background
-    ###################################################
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
+
+    # Category Classification
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+
+    key_points_model = utils.get_suitable_key_points_model(category)
+    if key_points_model is None:
+        return {"color": None}
+
+    key_points = predict(image_storing_path, key_points_model)
+    segmented_image = utils.crop_image_for_color_detection(image_storing_path, key_points)
 
     # Extracting the color from the image
-    colors = color_detection.extract_dominant_colors(image_storing_path, 3)
-    hex_color = colors[1]
-    color = color_detection.color_name_from_hex(hex_color)
-    color = {"name": color, "hex": hex_color}
+    colors = color_detection.extract_dominant_colors_from_image(segmented_image, 3)
 
-    return {"color": color}
+    data = {"color": colors[0]}
+    print(data)
+    return data
 
 
-@app.post("/season", status_code=status.HTTP_200_OK, response_model=schemas.SeasonResponse,
-          tags=['Season Retrieval'])
+@app.post("/season", status_code=status.HTTP_200_OK, response_model=schemas.SeasonResponse, tags=['Season Retrieval'])
 def detect_season(image: schemas.Image):
-    # Downloading the image
+    # Reference the global variable within the local scope
+    global CATEGORY_MODEL
 
+    # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
 
@@ -121,20 +144,26 @@ def detect_season(image: schemas.Image):
     # Preparing the destination for string the image
     image_storing_path = image_storing_path = path.join(IMAGES, filename)
 
-    ###################################################
-    # [MISSING]: classify the category of the cloth in the image
-    category = ''
-    ###################################################
-    season = season = utils.classify_season(category)
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
 
-    return {"season": season}
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+
+    # Season classification
+    season = utils.classify_season(category)
+
+    data = {"season": season}
+    print(data)
+    return data
 
 
-@app.post("/gender", status_code=status.HTTP_200_OK, response_model=schemas.GenderResponse,
-          tags=['Gender Retrieval'])
-def detect_season(image: schemas.Image):
+@app.post("/gender", status_code=status.HTTP_200_OK, response_model=schemas.GenderResponse, tags=['Gender Retrieval'])
+def detect_gender(image: schemas.Image):
+    # Reference the global variable within the local scope
+    global CATEGORY_MODEL
+
     # Downloading the image
-
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
 
@@ -143,24 +172,26 @@ def detect_season(image: schemas.Image):
     # Preparing the destination for string the image
     image_storing_path = image_storing_path = path.join(IMAGES, filename)
 
-    ###################################################
-    # [MISSING]: classify the category of the cloth in the image
-    category = ''
-    ###################################################
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
+
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+
+    # Gender classification
     gender = utils.classify_gender(category)
 
-    return {"gender": gender}
+    data = {"gender": gender}
+    print(data)
+    return data
 
 
 @app.post("/category", status_code=status.HTTP_200_OK, response_model=schemas.CategoryResponse,
           tags=['Category Retrieval'])
 def classify_category(image: schemas.Image):
-    return {"Hello": "World"}
+    # Reference the global variable within the local scope
+    global CATEGORY_MODEL
 
-
-@app.post("/size", status_code=status.HTTP_200_OK, response_model=schemas.SizeResponse,
-          tags=['Size Retrieval'])
-def calc_size(image: schemas.Image):
     # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
@@ -169,17 +200,56 @@ def calc_size(image: schemas.Image):
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
     image_storing_path = image_storing_path = path.join(IMAGES, filename)
-    ###################################################
-    # [MISSING]: classify the category of the cloth in the image
-    category = 'trousers'
-    ###################################################
-    utils.calculate_size(image_storing_path, category)
-    return {"Hello": "World"}
+
+    print(CATEGORY_MODEL is None)
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
+
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+
+    data = {"category": category}
+    print(data)
+    return data
+
+
+@app.post("/size", status_code=status.HTTP_200_OK, response_model=schemas.SizeResponse, tags=['Size Retrieval'])
+def calc_size(image: schemas.Image):
+    # Reference the global variable within the local scope
+    global CATEGORY_MODEL
+
+    # Downloading the image
+    if not utils.download_image(image_url=image.url):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
+
+    # Extract the filename from the URL
+    filename = image.url.split('%')[1].split('?')[0][2:]
+    # Preparing the destination for string the image
+    image_storing_path = image_storing_path = path.join(IMAGES, filename)
+
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
+
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+    try:
+        width, height, size = utils.calculate_size(image_storing_path, category)[0]
+    except Exception as e:
+        print(str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='No reference detected')
+
+    data = {"width": width, "height": height, "size": size}
+    # print(data)
+    return data
 
 
 @app.post("/search", status_code=status.HTTP_200_OK, response_model=schemas.SearchResponse,
           tags=['Search Nearest Images'])
 def search(image: schemas.Image):
+    # Reference the global variableS within the local scope
+    global CATEGORY_MODEL
+    global IMAGE_SEARCH_MODEL
+
     # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image Not Found")
@@ -187,29 +257,32 @@ def search(image: schemas.Image):
     # Extract the filename from the URL
     filename = image.url.split('%')[1].split('?')[0][2:]
     # Preparing the destination for string the image
-    image_storing_path = image_storing_path = path.join(IMAGES, filename)
+    image_storing_path = path.join(IMAGES, filename)
 
-    ###################################################
-    # [MISSING]: classify the category of the cloth in the image
-    category = ''
-    ###################################################
+    # Category Classification
+    if CATEGORY_MODEL is None:
+        CATEGORY_MODEL = load_garment_classifier_model(GARMENTS_CLASSIFIER_MODEL)
+
+    (category, _) = predict_category(image_storing_path, CATEGORY_MODEL)
+
     # Initialize database connection
     conn, cursor = database.connect_database()
     # Loading the image searching model
-    model = utils.load_image_search_model()
+    if IMAGE_SEARCH_MODEL is None:
+        IMAGE_SEARCH_MODEL = utils.load_image_search_model()
     # Converting the downloaded image to a vector
-    image_vector = image_search.extract_features(image_storing_path, model)
+    image_vector = image_search.extract_features(image_storing_path, IMAGE_SEARCH_MODEL)
 
     # Compare this vector against all the stored images vectors in the database
     nearest_images = database.retrieve_nearest_k_images(cursor, image_vector, category, k=10)
 
-    return {"nearest_images": [
-        {"url": image[0], "rank": image[1]} for image in nearest_images
-    ]}
+    data = {"nearest_images": [{"url": image[0], "rank": image[1]} for image in nearest_images]}
+    print(data)
+    return data
 
 
 @app.put("/save-image", status_code=status.HTTP_201_CREATED, tags=['For saving the image in the database'])
-def save_image(image: schemas.Image):
+def save_image(image: schemas.ImageSave):
     # Downloading the image
     if not utils.download_image(image_url=image.url):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Failed to download the image.")
@@ -227,12 +300,13 @@ def save_image(image: schemas.Image):
         # Extract features from image
         image_vector = image_search.extract_features(img_path, model)
         # Saving the image in the database table
-        if not database.insert_image(conn, cursor, img_path, image_vector, image.url):
+        if not database.insert_image(conn, cursor, img_path, image_vector, image.url, image.category):
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                                 detail="Error while storing the image.")
     except Exception as e:
         error_detail = f"Error occurred while processing the image: {str(e)}"
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_detail)
+        print(error_detail)
     finally:
         database.close_database_connection(conn)
 
@@ -265,12 +339,12 @@ def delete_image(image: schemas.Image):
 
 
 if __name__ == "__main__":
+    conn, cursor = database.connect_database()
+    database.create_images_table(cursor)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
     # region Filling database
     # Calling the function to fill the database
     # model = utils.load_image_search_model()
     # utils.fill_database(model)
     # endregion
-
-    conn, cursor = database.connect_database()
-    database.create_images_table(cursor)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
