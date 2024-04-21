@@ -1,16 +1,11 @@
-import warnings
-
-import matplotlib.image as mpimg
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
+from PIL import Image
 
 
-def extract_dominant_colors(image_path: str, n_colors: int):
-    # Suppress FutureWarning
-    warnings.simplefilter(action='ignore', category=FutureWarning)
-
-    # Load the image using mpimg.imread()
-    image = mpimg.imread(image_path)
+def extract_dominant_colors_from_image(image, n_colors: int):
+    if isinstance(image, Image.Image):  # Check if image is a PIL Image
+        image = np.array(image)  # Convert PIL Image to NumPy array
 
     # Resize the image to reduce computation time
     image = image[::2, ::2]

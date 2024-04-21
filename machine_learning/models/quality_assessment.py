@@ -19,9 +19,10 @@ def calculate_BRISQUE_score(image_path):
     return score
 
 
-def asses_image_quality(image_path: str) -> bool:
+def asses_image_quality(image_path: str, thresh=30) -> bool:
     score = calculate_BRISQUE_score(image_path)
-    return score < 42
+    print(score)
+    return score < thresh
 
 
 

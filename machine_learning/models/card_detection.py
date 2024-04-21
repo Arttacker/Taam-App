@@ -1,5 +1,9 @@
+import os.path
+
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+from machine_learning.global_paths import IMAGES
 
 
 def angle_cos(p0, p1, p2):
@@ -29,70 +33,74 @@ def get_contours(img, rects):
 
 
 def get_pixel_measure(img_path):
-    # This function returns how many cms are equal to 1 px
-
+    # Read the image
     img = cv2.imread(img_path)
+    # img = cv2.resize(img, (224, 224), interpolation=cv2.INTER_AREA)
 
-    # Transform Image to HSV (Hue"Color", Saturation"Intensity", Value"Brightness") channels
+    # Transform Image to HSV channels
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     channels_hsv = cv2.split(img_hsv)
 
-    # Applying Gaussian blur to saturation Channel because it's effective in the edge detection tasks
+    # Gaussian blur on saturation Channel
     channel_s = channels_hsv[1]
     channel_s = cv2.GaussianBlur(channel_s, (9, 9), 2, 2)
-
-    # The purpose of this operation is to normalize or adjust the saturation values for later processing
-    # Converts the pixel values of the saturation channel to floating-point
     imf = channel_s.astype(np.float32)
-    # Scaling and converting images.
     imf = cv2.convertScaleAbs(imf, alpha=0.5, beta=0.5)
 
-    # These lines of code are performing edge detection using the Sobel operator on the saturation channel
-    # Horizontal edge detection
     sobx = cv2.Sobel(imf, cv2.CV_32F, 1, 0)
-    # Vertical edge detection
     soby = cv2.Sobel(imf, cv2.CV_32F, 0, 1)
-    # Squaring the gradients enhances the edges in the image, making them more prominent and easier to detect. 
-    # This is a common step in many edge detection algorithms, as it emphasizes regions with strong intensity changes.
     sobx = cv2.multiply(sobx, sobx)
     soby = cv2.multiply(soby, soby)
 
-    # This operation calculates the approximate absolute gradient magnitude, which represents the strength of edges in the image.
-    # It combines the horizontal and vertical gradient information to get a single value representing the overall gradient 
-    # magnitude at each pixel.
     grad_abs_val_approx = cv2.pow(sobx + soby, 0.5)
-    # After obtaining the gradient magnitude approximation, a Gaussian blur is applied to smooth the image.
     filtered = cv2.GaussianBlur(grad_abs_val_approx, (9, 9), 2, 2)
-    # Once the Gaussian blur is applied, the resulting image needs to be converted to a suitable format for display 
-    # or further processin
     sobel_img = cv2.cvtColor((filtered).astype(np.uint8), cv2.COLOR_RGB2BGR)
 
-    # Adjust the kernel size for desired thickness
     kernel = np.ones((3, 3), dtype=np.uint8)
-    # Morphological dilation is a process that expands the boundaries of objects in an image.
     sobel_img = cv2.dilate(sobel_img, kernel, iterations=3)
 
     rects = []
-    get_contours(img, rects)
-    get_contours(sobel_img, rects)
-    largest_contour = max(rects, key=cv2.contourArea)
+    try:
+        get_contours(img, rects)
+        get_contours(sobel_img, rects)
+        largest_contour = max(rects, key=cv2.contourArea)
+    except ValueError:
+        print('No cards')
+        return
 
-    mask = np.zeros_like(img)  # create blank image of same size as input
-    cv2.drawContours(mask, [largest_contour], -1, (255, 255, 255), cv2.FILLED)  # fill the contour with white
+    mask = np.zeros_like(img)
+    cv2.drawContours(mask, [largest_contour], -1, (255, 255, 255), cv2.FILLED)
 
-    # Calculate the area of the bounding rectangle around the card contour
     x, y, w, h = cv2.boundingRect(largest_contour)
-    card_area = w * h
 
-    # # Display the result image
-    # cv2.imshow('Result', mask)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    # Create figure and axes
+    fig, ax = plt.subplots()
 
-    # Ex : 1px  ->  0.5cm, if the distance between the 2 shoulders in the image is 100px then the shoulder width is 50cm
-    return 45.9 / card_area
+    # Convert BGR image to RGB for display in matplotlib
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # Display the image
+    ax.imshow(img_rgb)
+
+    # Create a rectangle patch
+    rect = plt.Rectangle((x, y), w, h, linewidth=2, edgecolor='r', facecolor='none')
+
+    # Add the rectangle to the axes
+    ax.add_patch(rect)
+
+    # Set the title and show the plot
+    ax.set_title('Detected Object')
+    plt.show()
+
+    # Ex : 1px  ->  0.5cm
+    img_h, img_w, _ = img.shape
+    scale_factor_w = 224 / img_w
+    scale_factor_h = 224 / img_h
+    w = w * scale_factor_w
+    h = h * scale_factor_h
+    return w, h
 
 
 if __name__ == '__main__':
-    card_area_pixels = get_pixel_measure(r'../images/id.jpg')
-    print("1 cm in one pixel => ", card_area_pixels)
+    image_path = os.path.join(IMAGES, 'test_1.jpeg')
+    get_pixel_measure(image_path)
+
