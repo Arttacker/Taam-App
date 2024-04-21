@@ -5,11 +5,13 @@ class Image(BaseModel):
     url: str
 
 
+class ImageSave(BaseModel):
+    url: str
+    category: str
+
+
 class GeneralImageResponse(BaseModel):
-    color: dict
-    width: float
-    height: float
-    size: str
+    color: str
     category: str
     gender: str
     season: str
@@ -32,7 +34,7 @@ class CategoryResponse(BaseModel):
 
 
 class ColorResponse(BaseModel):
-    color: dict
+    color: str
 
 
 class SizeResponse(BaseModel):
