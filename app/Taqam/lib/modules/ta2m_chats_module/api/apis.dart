@@ -23,21 +23,21 @@ FirebaseStorage storage = FirebaseStorage.instance;
 
 // for storing self information
 ChatUser me = ChatUser(
-    id: userModel!.userId!,
-    name: concatName(userModel!.fName!, userModel!.lName!),
-    email: userModel!.email!,
-    about: "Hey, I'm using Ta\'am!",
-    image: userModel!.image!,
-    createdAt: '',
-    isOnline: false,
-    lastActive: '',
-    pushToken: '',
-    lastMessage: '',
+  id: userModel!.userId!,
+  name: concatName(userModel!.fName!, userModel!.lName!),
+  email: userModel!.email!,
+  about: "Hey, I'm using Ta\'am!",
+  image: userModel!.image!,
+  createdAt: '',
+  isOnline: false,
+  lastActive: '',
+  pushToken: '',
+  lastMessage: '',
 );
 
 UserModel? userModel;
 
-Future<void> getUserModel() async{
+Future<void> getUserModel() async {
   print(UidTokenSave);
   await firestore
       .collection('users')
@@ -98,7 +98,7 @@ Future<void> sendPushNotification(ChatUser chatUser, String msg) async {
         headers: {
           HttpHeaders.contentTypeHeader: 'application/json',
           HttpHeaders.authorizationHeader:
-          'key=AAAAXNeacsk:APA91bHCPwlnuIE4ZYMsh8O90drBvDZqjZyJvCbuOm0HRQBl40TgoK4nQoG_3aAAGUxrx3mimouAQ7tp2m0AgVOTnR-j7da8hCbFgsanSM6q95A_CWkBxmY_FPUblAGcBbsz6f-tH42a'
+              'key=AAAAXNeacsk:APA91bHCPwlnuIE4ZYMsh8O90drBvDZqjZyJvCbuOm0HRQBl40TgoK4nQoG_3aAAGUxrx3mimouAQ7tp2m0AgVOTnR-j7da8hCbFgsanSM6q95A_CWkBxmY_FPUblAGcBbsz6f-tH42a'
         },
         body: jsonEncode(body));
     log('Response status: ${res.statusCode}');
@@ -166,16 +166,16 @@ Future<void> createUser() async {
   final time = DateTime.now().millisecondsSinceEpoch.toString();
 
   final chatUser = ChatUser(
-      id: userModel!.userId!,
-      name: concatName(userModel!.fName!, userModel!.lName!),
-      email: userModel!.email!,
-      about: "Hey, I'm using We Chat!",
-      image: userModel!.image!,
-      createdAt: time,
-      isOnline: false,
-      lastActive: time,
-      pushToken: '',
-      lastMessage: time,
+    id: userModel!.userId!,
+    name: concatName(userModel!.fName!, userModel!.lName!),
+    email: userModel!.email!,
+    about: "Hey, I'm using We Chat!",
+    image: userModel!.image!,
+    createdAt: time,
+    isOnline: false,
+    lastActive: time,
+    pushToken: '',
+    lastMessage: time,
   );
 
   return await firestore
@@ -190,6 +190,7 @@ Stream<QuerySnapshot<Map<String, dynamic>>> getMyUsersId() {
       .collection('users_chat')
       .doc(userModel!.userId)
       .collection('my_users')
+      .orderBy('lastMessage',descending: true)
       .snapshots();
 }
 
@@ -201,7 +202,7 @@ Stream<QuerySnapshot<Map<String, dynamic>>> getAllUsers(List<String> userIds) {
       .where('id',
           whereIn: userIds.isEmpty
               ? ['']
-              : userIds)//because empty list throws an error
+              : userIds) //because empty list throws an error
       // .where('id', isNotEqualTo: user.uid)
       .snapshots();
 }
@@ -247,11 +248,11 @@ Stream<QuerySnapshot<Map<String, dynamic>>> getUserInfo(ChatUser chatUser) {
 }
 
 ChatUser? chatUser;
-Future<void> getUser(String userId)async{
-  await firestore.collection('users_chat').doc(userId).get().then((value){
+
+Future<void> getUser(String userId) async {
+  await firestore.collection('users_chat').doc(userId).get().then((value) {
     chatUser = ChatUser.fromJson(value.data()!);
-  }).catchError((error){
-  });
+  }).catchError((error) {});
 }
 
 // update online or last active status of user
@@ -282,22 +283,21 @@ Stream<QuerySnapshot<Map<String, dynamic>>> getAllMessages(ChatUser user) {
 }
 
 // for adding an user to my user when first message is send
-Future<void> sendFirstMessage(ChatUser chatUser, String msg, Type type ) async {
-  final time = DateTime.now().millisecondsSinceEpoch.toString();
+Future<void> sendFirstMessage(ChatUser chatUser, String msg, Type type) async {
   await firestore
       .collection('users_chat')
       .doc(chatUser.id)
       .collection('my_users')
       .doc(userModel!.userId)
-      .set({
-  }).then((value) => sendMessage(chatUser, msg, type));
-  await firestore.collection('users_chat').doc(chatUser.id).update({"lastMessage": time});
-  await firestore.collection('users_chat').doc(userModel!.userId).update({"lastMessage": time});
+      .set({}).then((value) => sendMessage(chatUser, msg, type));
+
 }
+
 // for sending message
 Future<void> sendMessage(ChatUser chatUser, String msg, Type type) async {
   //message sending time (also used as id)
   final time = DateTime.now().millisecondsSinceEpoch.toString();
+  final timestamp = FieldValue.serverTimestamp();
   //message to send
   final Message message = Message(
       toId: chatUser.id,
@@ -305,7 +305,8 @@ Future<void> sendMessage(ChatUser chatUser, String msg, Type type) async {
       read: '',
       type: type,
       fromId: userModel!.userId!,
-      sent: time
+      sent: time,
+      timestamp: timestamp
   );
   final ref =
       firestore.collection('chats/${getConversationID(chatUser.id)}/messages/');
@@ -316,10 +317,27 @@ Future<void> sendMessage(ChatUser chatUser, String msg, Type type) async {
       .doc(chatUser.id)
       .collection('my_users')
       .doc(userModel!.userId)
-      .set({
+      .set({});
+
+
+  await firestore
+      .collection('users_chat')
+      .doc(chatUser.id)
+      .collection('my_users')
+      .doc(userModel!.userId)
+      .update({
+    "lastMessage": time,
+    'timestamp': timestamp,
   });
-  await firestore.collection('users_chat').doc(chatUser.id).update({"lastMessage": time});
-  await firestore.collection('users_chat').doc(userModel!.userId).update({"lastMessage": time});
+  await firestore
+      .collection('users_chat')
+      .doc(userModel!.userId)
+      .collection('my_users')
+      .doc(chatUser.id)
+      .update({
+    "lastMessage": time,
+    'timestamp': timestamp,
+  });
 }
 
 //update read status of message
@@ -335,6 +353,7 @@ Stream<QuerySnapshot<Map<String, dynamic>>> getLastMessage(ChatUser user) {
   return firestore
       .collection('chats/${getConversationID(user.id)}/messages/')
       .orderBy('sent', descending: true)
+       //timestamp
       .limit(1)
       .snapshots();
 }
@@ -372,10 +391,8 @@ Future<void> deleteMessage(Message message) async {
   }
 }
 
-Future<bool> searchConversationIdChat(String conversationId)async{
+Future<bool> searchConversationIdChat(String conversationId) async {
   DocumentSnapshot snapshot =
-  await firestore.collection('chats').doc(conversationId).get();
+      await firestore.collection('chats').doc(conversationId).get();
   return snapshot.exists;
 }
-
-

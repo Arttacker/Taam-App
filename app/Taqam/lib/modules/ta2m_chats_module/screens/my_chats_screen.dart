@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -123,7 +124,8 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
               stream: getMyUsersId(),
 
               //get id of only known users
-              builder: (context, snapshot) {
+              builder: (context, AsyncSnapshot<QuerySnapshot>snapshot) {
+                var ids=snapshot.data?.docs.map((e) => e.id).toList() ?? [];
                 switch (snapshot.connectionState) {
                 //if data is loading
                   case ConnectionState.waiting:
@@ -133,48 +135,45 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                 //if some or all data is loaded then show it
                   case ConnectionState.active:
                   case ConnectionState.done:
-                    return StreamBuilder(
+                    return ids.isNotEmpty?StreamBuilder(
                       stream: getAllUsers(
                           snapshot.data?.docs.map((e) => e.id).toList() ?? []),
 
                       //get only those user, who's ids are provided
-                      builder: (context, snapshot) {
+                      builder: (context, AsyncSnapshot<QuerySnapshot>snapshot) {
                         switch (snapshot.connectionState) {
                         //if data is loading
                           case ConnectionState.waiting:
                           case ConnectionState.none:
-                          // return const Center(
-                          //     child: CircularProgressIndicator());
+                          return const Center(
+                              child: CircularProgressIndicator()
+                          );
 
                           //if some or all data is loaded then show it
                           case ConnectionState.active:
                           case ConnectionState.done:
-                            final data = snapshot.data?.docs;
-                            _list = data
-                                ?.map((e) => ChatUser.fromJson(e.data()))
-                                .toList() ??
-                                [];
-                            // _list.sort((a, b) => b.lastMessage.compareTo(a.lastMessage));
+                           {
+                             var data = snapshot.data!.docs;
+                             data=reorderDocuments(data,ids);
 
-                            if (_list.isNotEmpty) {
-                              return ListView.builder(
-                                  itemCount: _isSearching
-                                      ? _searchList.length
-                                      : _list.length,
-                                  padding: EdgeInsets.only(top: mq.height * .01),
-                                  physics: const BouncingScrollPhysics(),
-                                  itemBuilder: (context, index) {
-                                    return ChatUserCard(
-                                        user: _isSearching
-                                            ? _searchList[index]
-                                            : _list[index]);
-                                  });
-                            } else {
-                              return const Center(child: Text('Start your first chat',style: TextStyle(fontSize: 25,color: ColorsManager.mainColor),));
-                            }
+
+                             return ListView.builder(
+                                 itemCount: _isSearching
+                                     ? _searchList.length
+                                     : data.length,
+                                 padding: EdgeInsets.only(top: mq.height * .01),
+                                 physics: const BouncingScrollPhysics(),
+                                 itemBuilder: (context, index) {
+                                   return ChatUserCard(
+                                       user: _isSearching
+                                           ? _searchList[index]
+                                           : ChatUser(image: data[index]['image'], about: data[index]['about'], name: data[index]['name'], createdAt: data[index]['created_at'], isOnline: data[index]['is_online'], id: data[index]['id'], lastActive: data[index]['last_active'], email: data[index]['email'], pushToken: data[index]['push_token'], lastMessage: data[index]['lastMessage']));
+                                 });
+                           }
+
                         }
                       },
-                    );
+                    ): const Center(child: Text('Start your first chat',style: TextStyle(fontSize: 25,color: ColorsManager.mainColor),));
                 }
               },
             ),
@@ -184,5 +183,34 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
     );
   }
 
-  // for adding new chat user
+  List<QueryDocumentSnapshot<Object?>> reorderDocuments(
+      List<QueryDocumentSnapshot<Object?>> documents,
+      List<String> customOrderIds,
+      ) {
+    List<QueryDocumentSnapshot<Object?>> reorderedList = [];
+
+    try {
+      for (String id in customOrderIds) {
+        QueryDocumentSnapshot<Object?> matchingDocument = documents.firstWhere(
+              (doc) => doc.id == id,
+          orElse: () => throw Exception("Document with ID $id not found."), // Throw an exception if no matching document is found
+        );
+
+        reorderedList.add(matchingDocument);
+      }
+
+      // Add any remaining documents that were not in the customOrderIds list
+      for (QueryDocumentSnapshot<Object?> doc in documents) {
+        if (!customOrderIds.contains(doc.id)) {
+          reorderedList.add(doc);
+        }
+      }
+    } catch (e) {
+      // Handle the exception
+      // You can choose to rethrow the exception if needed
+      // rethrow;
+    }
+
+    return reorderedList;
+  }
 }

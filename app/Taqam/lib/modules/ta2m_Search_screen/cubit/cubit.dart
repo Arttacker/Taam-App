@@ -64,7 +64,7 @@ class SearchCubit extends Cubit<SearchState> {
     try {
       // POST request for quality
       var qualityResponse = await http.post(
-        Uri.parse('http://$APIServerIP:$APIServerPort:8000/quality'),
+        Uri.parse('http://$APIServerIP:$APIServerPort/quality'),
         headers: {
           HttpHeaders.contentTypeHeader: 'application/json',
         },
