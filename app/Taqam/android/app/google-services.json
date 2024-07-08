@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "398754214601",
+    "project_id": "ta-am-2e7cf",
+    "storage_bucket": "ta-am-2e7cf.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:398754214601:android:6360f05c8d2046a98a9318",
+        "android_client_info": {
+          "package_name": "com.example.taqam"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "398754214601-l5n8fv0qn0v7575b246odhlflih9jqdm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxbc9t2jEQ79Rk8PJf4dzozYS_YAfur0U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "398754214601-l5n8fv0qn0v7575b246odhlflih9jqdm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "398754214601-irn88srt7trphrmgtbb96jffmjhurvmr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.taqam"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
