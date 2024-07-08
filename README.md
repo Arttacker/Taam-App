@@ -78,6 +78,43 @@ python .\apis\app\main.py
 `http://127.0.0.1:8000/docs#/`
 
 ### 2. Setting up the Mobile App
+# Tools Required:
+
+1. Android Studio
+2. Flutter Source with Dart SDK version 3.13.6
+    - Download from [flutter 3.13.6](https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.13.6-stable.zip)
+# Steps:
+
+#### Setting Up Flutter and Dart in Android Studio
+
+1. **Set Up Flutter Path:**
+    
+    - Open the folder where you downloaded Flutter.
+    - Copy the path to the `bin` directory within the Flutter folder.
+    - Go to your operating system’s "Edit the system environment variables" settings.
+    - Replace the existing path with the new Flutter path.
+2. **Open Android Studio.**
+    
+3. **Configure Flutter in Android Studio:**
+    
+    - Navigate to `Settings` > `Languages & Frameworks` > `Flutter`.
+    - Set the Flutter SDK path to the `bin` directory path you copied earlier.
+4. **Configure Dart SDK (if not automatically detected):**
+    
+    - Navigate to `Settings` > `Languages & Frameworks` > `Dart`.
+    - Check the box for "Enable Dart support for the project 'Taqam'".
+    - Set the Dart SDK path to `flutter/bin/cache/dart-sdk` within the Flutter folder.
+5. **Install Dependencies:**
+    
+    - Open the terminal in Android Studio.
+    - Run the command: 
+	    - **`flutter pub get`**
+6. **Select a Virtual Device or Connect Your Device:**
+    
+    - Choose a virtual device or connect a physical device to run your project.
+7. **Run the Project:**
+    
+    - Run the Taqam project.
 
 ## Usage  
   
