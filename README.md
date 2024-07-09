@@ -78,12 +78,12 @@ python .\apis\app\main.py
 `http://127.0.0.1:8000/docs#/`
 
 ### 2. Setting up the Mobile App
-# Tools Required:
+#### Tools Required:
 
 1. Android Studio
 2. Flutter Source with Dart SDK version 3.13.6
     - Download from [flutter 3.13.6](https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.13.6-stable.zip)
-# Steps:
+#### Steps:
 
 #### Setting Up Flutter and Dart in Android Studio
 
