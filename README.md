@@ -1,6 +1,8 @@
 # Ta'am-App  
   
-![](https://github.com/Arttacker/Taam-App/assets/99927650/ed54e482-e64f-4e26-b11c-2efee2573c0c)  
+![image](https://github.com/Arttacker/Taam-App/assets/99927650/8cc50061-193b-4015-b1e8-838fc81dc88e)
+
+  
   
   
 **Ta'am**  is a mobile application designed to facilitate the buying and selling of used clothes. By providing a platform for users to list their pre-loved items and browse for new additions to their wardrobe, Ta'am aims to promote sustainability, affordability, and convenience in the fashion industry.  
